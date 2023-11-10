@@ -102,53 +102,177 @@
     </div>
    </div>
   </form>
-  <script>var props = {"ii1b":{"name":"testform","target":"_self","method":"POST","url":"http://65.21.199.181:8081/api/v1/wbWebsite/2414/form/formData?store=fastgain23101214","emailenable":false,"formType":"SIMPLE_FORM"}};
+  <script>var props = {"ii1b":{"name":"testform","target":"_self","method":"POST","url":"http://65.21.199.181:8081/api/v1/wbWebsite/2414/form/formData?store=fastgain23101214","emailenable":false,"formType":"SIMPLE_FORM","websiteId":2414,"merchantCode":"fastgain23101214","formInitUrl":"http://65.21.199.181:8081/api/v1/website/form/init?store=fastgain23101214"}};
           var ids = Object.keys(props).map(function(id) { return '#'+id }).join(',');
           var els = document.querySelectorAll(ids);
           for (var i = 0, len = els.length; i < len; i++) {
             var el = els[i];
-            (function ({ name, target, method, url, emailenable }) {
-        // const submitButton = this.querySelector('[type=submit]'); // Find the submit button
-        if (name) {
-            const form = this;
-            this.addEventListener('submit', (e) => {
-                e.preventDefault(); // Prevent the default form submission
-                // Create a new FormData object
-                const formData = new FormData(form);
-                formData.append('emailEnabled', emailenable);
-                formData.append('formName', name);
-                // Perform an API call using fetch and Promises
-                fetch(url, {
-                    method: method,
-                    // headers: {
-                    //     'Content-Type': 'application/json',
-                    // },
-                    body: formData,
-                })
-                    .then(response => {
-                    if (response.ok) {
-                        // API call successful
-                        return response.json();
-                    }
-                    else {
-                        // API call failed
-                        throw new Error('API call failed');
-                    }
-                })
-                    .then(responseData => {
-                    console.log('API response:', responseData);
-                    // Your custom script logic here
-                })
-                    .catch(error => {
-                    console.error('Error during API call:', error);
+            (function ({
+    name,
+    target,
+    method,
+    url,
+    emailenable,
+    websiteId,
+    merchantCode,
+    formInitUrl
+  }) {
+    const PAYMENT = {
+      COD_UPPERCASE: "COD",
+      COD: "cod",
+      AUTHORIZECAPTURE: "AUTHORIZECAPTURE",
+      ONLINEPAYMENT: "ONLINEPAYMENT",
+      RAZORPAY: "razorpay",
+      RAZORPAY_UPPERCASE: "RAZORPAY",
+      PAYMENT_INITIALIZATION: "payment/init",
+      INIT: "INIT",
+      PRIMARY_CARD: "primary",
+      PAYMENT_FAILED: "payment.failed",
+      RECEIPT_ORDER: "receipt_order_",
+      RAZOR_PAY_SUCCESSFULL: "onRazorPaySuccess",
+      SHIPPING: "Shipping",
+      SECONDARY_CARD: "secondary"
+    };
+    const submitButton = this.querySelector('[type=submit]'); // Find the submit button
+
+    if (name) {
+      const form = this;
+      this.addEventListener('submit', e => {
+        e.preventDefault(); // Prevent the default form submission
+        // Add Razorpay script dynamically
+
+        const razorpayScript = document.createElement('script');
+        razorpayScript.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        razorpayScript.async = true; // Append the script to the document's head
+
+        document.head.appendChild(razorpayScript); // Create a new FormData object
+
+        const formData = new FormData(form);
+        formData.append('emailEnabled', emailenable);
+        formData.append('formName', name);
+        formData.append('price', 100);
+        console.log(formData); // Perform an API call using fetch and Promises
+
+        fetch(url, {
+          method: method,
+          // headers: {
+          //     'Content-Type': 'application/json',
+          // },
+          body: formData
+        }).then(response => {
+          if (response.ok) {
+            // API call successful
+            return response.json();
+          } else {
+            // API call failed
+            throw new Error('API call failed');
+          }
+        }).then(resData => {
+          console.log('API response:', resData); // Define the URL and data for the POST request
+
+          const data = {
+            websiteFormId: resData === null || resData === void 0 ? void 0 : resData.id,
+            amount: resData === null || resData === void 0 ? void 0 : resData.price,
+            websiteId: websiteId,
+            integrationKeys: {},
+            paymentId: "",
+            paymentModule: "wb_razorpay",
+            paymentToken: "",
+            paymentType: "ONLINEPAYMENT"
+          }; // Create headers for the request
+
+          const headers = new Headers();
+          headers.append('Content-Type', 'application/json'); // Create the request configuration
+
+          const requestOptions = {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(data)
+          };
+          fetch(formInitUrl, requestOptions).then(response => {
+            if (response.ok) {
+              // API call successful
+              return response.json();
+            } else {
+              // API call failed
+              throw new Error('API call failed');
+            }
+          }).then(order => {
+            // console.log(order);
+            try {
+              if (order) {
+                console.log('order recived'); // const details = JSON.parse(order.details);
+
+                const details = {}; // razorpay payment options
+
+                const options = {
+                  key: order === null || order === void 0 ? void 0 : order.metadata.keyId,
+                  amount: details === null || details === void 0 ? void 0 : details.amount,
+                  currency: "INR",
+                  name: "NJ collections",
+                  description: '',
+                  image: '',
+                  order_id: order === null || order === void 0 ? void 0 : order.paymentToken,
+                  receipt: PAYMENT.RECEIPT_ORDER + (order === null || order === void 0 ? void 0 : order.orderId),
+                  handler: res => {
+                    console.log('razorpay response', res);
+                    const paymentCaptureData = {
+                      amount: "string",
+                      formId: 0,
+                      integrationKeys: {
+                        additionalProp1: "",
+                        additionalProp2: "",
+                        additionalProp3: ""
+                      },
+                      orderId: 0,
+                      parentStoreId: 0,
+                      paymentId: "",
+                      paymentModule: "",
+                      paymentToken: "",
+                      paymentType: "",
+                      signature: "",
+                      transactionType: "",
+                      websiteId: 0
+                    };
+                  },
+                  prefill: {
+                    name: "Akshay ret",
+                    email: "test@gmail.com",
+                    contact: 7014405637
+                  },
+                  theme: {
+                    color: '#3399cc'
+                  }
+                }; // razorpay object initalize
+
+                const rzp1 = new window.Razorpay(options); // init razopay payment window 
+
+                rzp1.open(); // handle
+
+                rzp1.on(PAYMENT.PAYMENT_FAILED, function (response) {
+                  alert(response.error.description);
                 });
-            });
-            // }
-        }
-        else {
-            console.log('somthing went wrong');
-        }
-    }.bind(el))(props[el.id]);
+              } else {
+                const errorMessage = 'PICKBAZAR_ERROR.SOMETHING_WENT_WRONG'; // toast.error(errorMessage);
+
+                console.log(errorMessage);
+              }
+            } catch (error) {
+              console.log(error);
+              debugger;
+            }
+          }).catch(error => {
+            console.error('Error during API call:', error);
+          }); // await handlePlaceOrder();
+          // Your custom script logic here
+        }).catch(error => {
+          console.error('Error during API call:', error);
+        });
+      }); // }
+    } else {
+      console.log('somthing went wrong');
+    }
+  }.bind(el))(props[el.id]);
           }</script>
  </body>
 </html>
